@@ -48,13 +48,23 @@ app.post('/login', (req, res) => {
     .then((result) => {
       console.log(result);
       if (result) {
-        const token = jwt.sign({ userId: result.userId }, SECRET_KEY, {
-          expiresIn: '2h',
-        });
-        res.cookie('token', token, {
+        const accessToken = jwt.sign({ userId: result.userId }, SECRET_KEY, {
+          expiresIn: '12h',
+        }); // Short-lived
+        const refreshToken = jwt.sign({ userId: result.userId }, SECRET_KEY, {
+          expiresIn: '7d',
+        }); // Long-lived
+
+        // Optionally save refreshToken in your DB
+        res.cookie('token', accessToken, {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production' ? true : false,
-        }); // HTTPS에서는 secure:true
+        });
+        res.cookie('refreshToken', refreshToken, {
+          httpOnly: true,
+          path: '/refresh',
+          secure: process.env.NODE_ENV === 'production' ? true : false,
+        });
         res.send({ success: true, message: '로그인 성공!!' });
       } else {
         res
@@ -65,6 +75,28 @@ app.post('/login', (req, res) => {
     .catch((err) => {
       console.error(err);
       res.status(500).send({ message: '서버 에러!!' });
+    });
+});
+
+// 새로운 액세스 토큰 발급
+app.post('/refresh', (req, res) => {
+  const refreshToken = req.cookies.refreshToken;
+  if (!refreshToken) return res.status(401).send('로그인 필요');
+
+  verifyToken(refreshToken, SECRET_KEY)
+    .then((decoded) => {
+      const newAccessToken = jwt.sign({ userId: decoded.userId }, SECRET_KEY, {
+        expiresIn: '15m',
+      });
+      res.cookie('token', newAccessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+      });
+      res.send({ success: true });
+    })
+    .catch((err) => {
+      console.error('리프레시 토큰 검증 실패:', err);
+      res.status(403).send('유효하지 않은 리프레쉬 토큰');
     });
 });
 
