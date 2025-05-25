@@ -11,7 +11,10 @@ const PORT = 3000;
 
 app.use(
   cors({
-    origin: 'http://localhost:5174', // 클라이언트 주소로 지정
+    origin:
+      process.env.NODE_ENV === 'production'
+        ? 'https://project-management-nine-phi.vercel.app'
+        : 'http://localhost:5174', // 기본값 또는 환경변수 클라이언트 주소로 지정
     credentials: true, // 쿠키 전달을 허용
   })
 );
@@ -48,7 +51,10 @@ app.post('/login', (req, res) => {
         const token = jwt.sign({ userId: result.userId }, SECRET_KEY, {
           expiresIn: '2h',
         });
-        res.cookie('token', token, { httpOnly: true, secure: false }); // HTTPS에서는 secure:true
+        res.cookie('token', token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production' ? true : false,
+        }); // HTTPS에서는 secure:true
         res.send({ success: true, message: '로그인 성공!!' });
       } else {
         res
